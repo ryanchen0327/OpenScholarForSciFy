@@ -172,3 +172,35 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Model cache and large files
+cache/
+models/
+checkpoints/
+*.bin
+*.safetensors
+*.h5
+*.pth
+*.pt
+*.ckpt
+*.model
+
+# Data files
+data/
+datasets/
+# Keep small config and documentation files, but ignore large data files
+# *.jsonl
+# *.json  
+*.csv
+*.tsv
+*.parquet
+
+# Output files
+outputs/
+results/
+logs/
+wandb/
+
+# Test output files (keep test input files but ignore outputs)
+test_output*.json
+test_output*.jsonl
