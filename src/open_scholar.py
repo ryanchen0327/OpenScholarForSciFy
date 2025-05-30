@@ -39,6 +39,12 @@ def remove_citations(sent):
     
 def rerank_paragraphs_bge(query, paragraphs, reranker, norm_cite=False, start_index=0, use_abstract=False):
     paragraphs = [p for p in paragraphs if p["text"] is not None]
+    
+    # Return empty results if no paragraphs to rerank
+    if len(paragraphs) == 0:
+        print("No paragraphs to rerank - returning empty results")
+        return [], {}, {}
+    
     if use_abstract is True:
         paragraph_texts = [p["title"] + "\n" + p["abstract"] + "\n" + p["text"] if "title" in p and "abstract" in p else p["text"] for p in paragraphs]
     else:
@@ -725,9 +731,16 @@ class OpenScholar(object):
         total_cost = 0
             
         if ranking_ce is True:
-            item["ctxs"], ranked_results, id_mapping = self.reranking_passages_cross_encoder(item, batch_size=1, llama3_chat=llama3_chat, task_name=task_name, use_abstract=False)
-            item["ranked_results"] = ranked_results
-            item["id_mapping"] = id_mapping
+            # Check if there are contexts to rerank
+            if len(item["ctxs"]) == 0:
+                print("⚠️  Skipping reranking: No contexts available to rerank")
+                print("   This is normal when starting with empty contexts - documents will be retrieved during feedback phase")
+                item["ranked_results"] = {}
+                item["id_mapping"] = {}
+            else:
+                item["ctxs"], ranked_results, id_mapping = self.reranking_passages_cross_encoder(item, batch_size=1, llama3_chat=llama3_chat, task_name=task_name, use_abstract=False)
+                item["ranked_results"] = ranked_results
+                item["id_mapping"] = id_mapping
 
         if max_per_paper is not None:
             filtered_ctxs = []
