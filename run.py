@@ -64,7 +64,7 @@ def process_input_data(data, use_contexts=True):
                 item["input"] = item["query"]
 
         new_ctxs = []
-        if use_contexts is True:
+        if use_contexts is True and "ctxs" in item:
             # normalize ctx format for different retrieval APIs
             for ctx in item["ctxs"]:
                 if type(ctx) is list:
@@ -94,6 +94,10 @@ def process_input_data(data, use_contexts=True):
 
             item["ctxs"] = processed_paras
             item["original_ctxs"] = processed_paras
+        elif use_contexts is True and "ctxs" not in item:
+            # Initialize empty ctxs for RAG pipeline when contexts will be retrieved
+            item["ctxs"] = []
+            item["original_ctxs"] = []
         processed_data.append(item)
     return processed_data
         
@@ -243,7 +247,7 @@ def main():
                         feedback_threshold_type=args.feedback_threshold_type)
     
     # process input data
-    data = process_input_data(data)
+    data = process_input_data(data, use_contexts=args.use_contexts)
 
     for item in data:
         if "answer" not in item and "output" in item:
