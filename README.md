@@ -1,33 +1,33 @@
-# OpenScholar 
+# OpenScholar
 
-This repository contains the code bases of OpenScholar. 
+This repository contains the implementation of OpenScholar, a retrieval-augmented language model designed for scientific literature synthesis.
 
 [**Blog**](https://allenai.org/blog/openscholar) | [**Demo**](https://open-scholar.allen.ai/) |
 [**Paper**](https://arxiv.org/abs/2411.14199) | [**Model checkpoints and data**](https://huggingface.co/collections/OpenScholar/openscholar-v1-67376a89f6a80f448da411a6) | [**ScholarQABench**](https://github.com/AkariAsai/ScholarQABench/) | [**Expert Evaluation**](https://github.com/AkariAsai/OpenScholar_ExpertEval) | 
 [**Slides**](https://akariasai.github.io/assets/pdf/open_scholar_slides.pdf) 
  
-### Table of contents
+### Table of Contents
 1. [Overview of OpenScholar](#overview-of-openscholar)
-2. [Repository Organizations](#repository-organizations)
+2. [Repository Organization](#repository-organization)
 3. [Installation](#installation)
-4. [Run OpenScholar](#run-openscholar-inference)
-5. [Train OpenScholar-8B](#training)
-6. [Run Retriever](#run-retriever)
-6. [Contact and Citation](#contact-and-citation)
-
+4. [Running OpenScholar](#running-openscholar-inference)
+5. [Training OpenScholar-8B](#training)
+6. [Running Retriever](#running-retriever)
+7. [Configuration Options](#configuration-options)
+8. [Citation](#citation)
 
 ## Overview of OpenScholar
-Scientific progress hinges on our ability to find, synthesize, and build on relevant knowledge from the scientific literature. However, the exponential growth of this literature—with millions of papers now published each year—has made it increasingly difficult for scientists to find the information they need or even stay abreast of the latest findings in a single subfield.
 
-To help scientists effectively navigate and synthesize scientific literature, we introduce **OpenScholar**, a retrieval-augmented language model (LM) designed to answer user queries by first searching for relevant papers in the literature and then generating responses grounded in those sources. Try [open-scholar.allen.ai/](https://open-scholar.allen.ai/) and check [our paper](https://openscholar.allen.ai/paper) for more detail.
+Scientific progress depends on researchers' ability to synthesize the growing body of literature. However, the exponential growth of scientific publications—with millions of papers published annually—has made it increasingly challenging for scientists to find relevant information and stay current with developments in their fields.
 
+**OpenScholar** is a retrieval-augmented language model designed to address these challenges by searching for relevant papers in the literature and generating responses grounded in those sources. The system combines dense retrieval, reranking, and iterative self-feedback to provide accurate, citation-backed answers to scientific queries.
 
 ![Overview of OpenScholar](imgs/open_scholar.png)
 
-## 🚀 Recent Enhancements (v2.0.0)
+## 🚀 Enhanced Features (v2.0.0)
 
 ### Multi-Source Feedback Retrieval
-OpenScholar now supports **multiple data sources** during self-reflective generation, significantly expanding retrieval coverage:
+OpenScholar supports multiple data sources during self-reflective generation, significantly expanding retrieval coverage:
 
 - **Semantic Scholar API** - Real-time academic paper search
 - **peS2o Dense Retrieval** - Pre-indexed scientific literature
@@ -35,10 +35,10 @@ OpenScholar now supports **multiple data sources** during self-reflective genera
 - **You.com Search** - Academic-focused web search
 
 ### Adaptive Score-Based Filtering
-Intelligent threshold selection that **automatically becomes stricter** as more sources are enabled:
-- **1 source**: moderate filtering (~50% kept)
-- **2 sources**: strict filtering (~25% kept)
-- **3+ sources**: very strict filtering (~10% kept)
+Intelligent threshold selection that automatically adjusts filtering strictness based on the number of enabled sources:
+- **1 source**: moderate filtering (~50% documents retained)
+- **2 sources**: strict filtering (~25% documents retained)
+- **3+ sources**: very strict filtering (~10% documents retained)
 
 ### Enhanced Quality Control
 - **Consistent filtering** across initial and feedback retrieval
@@ -47,53 +47,53 @@ Intelligent threshold selection that **automatically becomes stricter** as more 
 
 📖 **See [MULTI_SOURCE_FEEDBACK_README.md](MULTI_SOURCE_FEEDBACK_README.md) and [SCORE_FILTERING_README.md](SCORE_FILTERING_README.md) for detailed guides.**
 
-## Repository Organizations
-This repository contains codes to run OpenScholar inference. 
+## Repository Organization
 
-- [`src/`](src): Main source codes for OpenScholar. 
-- [`training/`](training): Our training code to train Llama 3.1 8B using our processed data. We modified earlier version of `torchtune` for training. 
-- [`retriever/`](retriever): Code base to run retrieval offline & host retrieval servers for online retrieval.  
+This repository contains the core implementation for OpenScholar inference:
 
-For automatic and human evaluations, please check the following repositories. 
-- To run evaluations on **ScholarQABench**, please check the [ScholarQABench](https://github.com/AkariAsai/ScholarQABench/) repository. 
-- For our human evaluation interfaces as well as the results, please check the [OpenScholar_ExpertEval](https://github.com/AkariAsai/OpenScholar_ExpertEval) repository. 
+- [`src/`](src): Main source code for OpenScholar
+- [`training/`](training): Training code for Llama 3.1 8B using processed data (modified version of `torchtune`)
+- [`retriever/`](retriever): Code for offline retrieval and hosting retrieval servers
+
+For evaluation and benchmarking:
+- **ScholarQABench**: [ScholarQABench repository](https://github.com/AkariAsai/ScholarQABench/)
+- **Human Evaluation**: [OpenScholar_ExpertEval repository](https://github.com/AkariAsai/OpenScholar_ExpertEval)
 
 ## Installation 
-To run OpenScholar inference, please ensure that all necessary libraries are installed. 
 
-[test environment command]
+To run OpenScholar inference, ensure all necessary dependencies are installed:
 
-```python
+```bash
 conda create -n os_env python=3.10.0
 conda activate os_env
 pip install -r requirements.txt
 python -m spacy download en_core_web_sm
 ``` 
 
-Also please set the following API keys:
+### API Key Configuration
 
-```sh
+Set the required API keys:
+
+```bash
 export S2_API_KEY=YOUR_S2_API_KEY
 ```
-See instructions to acquire API keys at [Semantic Scholar API Page](https://www.semanticscholar.org/product/api). 
+Obtain API keys from the [Semantic Scholar API Page](https://www.semanticscholar.org/product/api).
 
-If you want to also want to use web search engine, then sign up for you.com web API and set the key.
-```sh
+For web search functionality, configure You.com API:
+```bash
 export YOUR_API_KEY=YOUR_YOU_COM_API_KEY
 ```
 
-For information related to OpenScholar training and retriever components, refer to the [`training/`](training/) and [`retrieval/`](retrieval) directories, respectively.
+For detailed information on training and retriever components, refer to the [`training/`](training/) and [`retriever/`](retriever) directories.
 
-## Run OpenScholar inference
+## Running OpenScholar Inference
 
-By default, OpenScholar takes retrieval results from off-line retrieval results after running the retrieval scripts in [retrieval/](retireval), followed by additional retrieval from Semantic Scholar Paper API and web search API results. See the script [src/use_search_apis.py](src/use_search_apis.py) to retrieve related passages offline using external APIs. 
+OpenScholar combines offline retrieval results with real-time API-based retrieval from Semantic Scholar and web search APIs. Offline retrieval results are available at [Google Drive](https://drive.google.com/drive/folders/1lOloYPOveKesD-37lD4Dlju96tc0XIm9?usp=sharing).
 
-We released our retrieval results at [google drive](https://drive.google.com/drive/folders/1lOloYPOveKesD-37lD4Dlju96tc0XIm9?usp=sharing).  
+### Using Open Language Models
 
-### Use Open LMs (e.g., `Llama-3.1_OpenScholar-8B`) locally 
-- Run a Standard RAG pipeline using top 10 
-
-```sh
+#### Standard RAG Pipeline
+```bash
 python run.py \
     --input_file YOUR_INPUT_FILE \
     --model_name OpenScholar/Llama-3.1_OpenScholar-8B \
@@ -102,9 +102,8 @@ python run.py \
     --top_n 10 --llama3 --zero_shot
 ```
 
-- Run a Retriever+ Reranker Pipeline
-
-```sh
+#### Retriever + Reranker Pipeline
+```bash
 python run.py \
     --input_file YOUR_INPUT_FILE \
     --model_name OpenScholar/Llama-3.1_OpenScholar-8B \
@@ -115,9 +114,8 @@ python run.py \
     --top_n 10 --llama3 --zero_shot
 ```
 
-- Run with Score-Based Document Filtering (Adaptive Quality Control)
-
-```sh
+#### Score-Based Document Filtering
+```bash
 python run.py \
     --input_file YOUR_INPUT_FILE \
     --model_name OpenScholar/Llama-3.1_OpenScholar-8B \
@@ -130,23 +128,20 @@ python run.py \
     --llama3 --zero_shot
 ```
 
-- Run Open Retriever Self-reflective Generation pipeline
-
-
-```sh
+#### Self-Reflective Generation Pipeline
+```bash
 python run.py \
     --input_file YOUR_INPUT_FILE \
-    --model_name  OpenScholar/Llama-3.1_OpenScholar-8B \
+    --model_name OpenScholar/Llama-3.1_OpenScholar-8B \
     --use_contexts --output_file OUTPUT_FILE_NAME \
     --top_n 10 --llama3 --use_contexts \
-    --ranking_ce --reranker OpenScholar/OpenScholar_Reranker \ 
-    --posthoc --feedack --ss_retriever \
-    --use_abstract --norm_cite --zero_shot --max_per_paper 3 \
+    --ranking_ce --reranker OpenScholar/OpenScholar_Reranker \
+    --posthoc --feedback --ss_retriever \
+    --use_abstract --norm_cite --zero_shot --max_per_paper 3
 ```
 
-- Run Multi-Source Feedback Retrieval (NEW)
-
-```sh
+#### Multi-Source Feedback Retrieval
+```bash
 python run.py \
     --input_file YOUR_INPUT_FILE \
     --model_name OpenScholar/Llama-3.1_OpenScholar-8B \
@@ -158,9 +153,8 @@ python run.py \
     --llama3 --zero_shot
 ```
 
-- Run with All Sources + Adaptive Filtering (NEW)
-
-```sh
+#### Complete Pipeline with All Sources
+```bash
 python run.py \
     --input_file YOUR_INPUT_FILE \
     --model_name OpenScholar/Llama-3.1_OpenScholar-8B \
@@ -174,62 +168,67 @@ python run.py \
     --llama3 --zero_shot
 ```
 
-#### Use propriety LMs e.g., OpenAI GPT4o 
+### Using Proprietary Language Models
 
-You can also combine the OpenScholar pipeline with propriety LLMs, by specifying  `model_name`, `api` and `api_key_fp`. 
+OpenScholar can be combined with proprietary LLMs such as OpenAI GPT-4o:
 
-```sh
+```bash
 python run.py \
     --input_file YOUR_INPUT_FILE \
     --model_name "gpt-4o" \
     --api "openai" \
-    --api_key_fp PATH_TO_YOUR_OPEN_AI_KEY \ 
+    --api_key_fp PATH_TO_YOUR_OPENAI_KEY \
     --use_contexts \
     --output_file OUTPUT_FILE_PATH \
     --top_n 10 --llama3 --zero_shot
 ```
 
-## Details of configurations 
-Below, we provide the detailed of configurations. 
+## Configuration Options
 
-- `top_n`: The number of passages to be fed into the underlying LM. By default, we use `10` for multi-paper tasks. 
-- `use_score_threshold`: Enable adaptive score-based document filtering instead of fixed top-N. See [SCORE_FILTERING_README.md](SCORE_FILTERING_README.md) for detailed instructions.
-- `score_threshold_type`: Choose threshold type for score-based filtering (`average`, `median`, `percentile_25`, `percentile_50`, `percentile_75`, `percentile_90`). Default: `average`.
-- `feedback`: Set true if you want to use the self-feedback loop during generation.
-- `posthoc_at`: Set true if you want to run posthoc citation attributions 
-- `zero_shot`: Set true if you want to run inference in a zero-shot manner. 
-- `ranking_ce`: Use a reranking model to rerank `top_n` passages; If not set true, we take the `top_n` passages from the `ctxs` in the provided input file. 
-- `reranker`: Specify the path to the reranker model file (local or HF hub). If you use our OpenScholar reranker, set `OpenScholar/OpenScholar_Reranker`
-- `min_citation`: You can set the minimum number of citations. If any `int` is given, we exclude papers whose citations is below `min_citation`. By default, we set it to `None` and all papers are considered regardless of their citation counts. 
-- `ss_retriever`: Use semantic scholar API during the feedback generation loop to enhance the feedback results. 
-- `use_pes2o_feedback`: **(NEW)** Enable peS2o dense retrieval during feedback loop for comprehensive scientific literature coverage.
-- `use_google_feedback`: **(NEW)** Enable Google search during feedback loop for web-based academic content discovery.
-- `use_youcom_feedback`: **(NEW)** Enable You.com search during feedback loop for academic-focused web search.
-- `feedback_threshold_type`: **(NEW)** Manual override for adaptive feedback threshold selection (`percentile_50`, `percentile_75`, `percentile_90`, etc.). Auto-adaptive by default.
-- `use_abstract`: Consider abstract to enhance the reranking results. 
-- `max_per_paper`: set the maximum number of passages from the same paper used during inference time. 
-- `task_name`: specify the task names when you run the single paper tasks. For SciFact, PubmedQA and QASA, the corresponding task names are `claim_full`, `boolean_question_full` and `single_qa`, respectively. 
+### Core Parameters
+- `top_n`: Number of passages fed to the language model (default: 10 for multi-paper tasks)
+- `use_score_threshold`: Enable adaptive score-based document filtering instead of fixed top-N
+- `score_threshold_type`: Threshold type for score-based filtering (`average`, `median`, `percentile_25`, `percentile_50`, `percentile_75`, `percentile_90`)
+- `feedback`: Enable self-feedback loop during generation
+- `posthoc_at`: Enable post-hoc citation attribution
+- `zero_shot`: Run inference in zero-shot manner
+
+### Retrieval and Reranking
+- `ranking_ce`: Use reranking model for passage reranking
+- `reranker`: Path to reranker model (use `OpenScholar/OpenScholar_Reranker` for OpenScholar reranker)
+- `min_citation`: Minimum citation count threshold for paper inclusion
+- `ss_retriever`: Use Semantic Scholar API during feedback generation
+
+### Multi-Source Retrieval (New)
+- `use_pes2o_feedback`: Enable peS2o dense retrieval during feedback loop
+- `use_google_feedback`: Enable Google search during feedback loop
+- `use_youcom_feedback`: Enable You.com search during feedback loop
+- `feedback_threshold_type`: Manual override for adaptive feedback threshold selection
+
+### Additional Options
+- `use_abstract`: Include abstracts to enhance reranking
+- `max_per_paper`: Maximum number of passages per paper during inference
+- `task_name`: Task specification (`claim_full` for SciFact, `boolean_question_full` for PubmedQA, `single_qa` for QASA)
 
 ## Training
-We train our [OpenScholar-8B](https://huggingface.co/OpenScholar/OpenScholar_Llama-3.1-8B) using our [OpenScholar/OS_Train_Data]([https://huggingface.co/OpenScholar/OpenScholar_Train_Data](https://huggingface.co/datasets/OpenScholar/OS_Train_Data)) data, which consists of 13k instruction-tuning data. We use our modified version of [torchtune]() to train our 8B model using 8*A100. 
 
-See mode detailed instructions for setting up the training in [train/](train)
+[OpenScholar-8B](https://huggingface.co/OpenScholar/OpenScholar_Llama-3.1-8B) is trained using the [OpenScholar Training Dataset](https://huggingface.co/datasets/OpenScholar/OS_Train_Data), consisting of 13K instruction-tuning examples. Training uses a modified version of torchtune on 8×A100 GPUs.
 
-## Run Retriever
-Both our peS2o v2 and v3 datastore (chunked text + index) are available: 
-- [OpenScholar/OpenScholar-DataStore-V2](https://huggingface.co/datasets/OpenScholar/OpenScholar-DataStore-V2)
-- [OpenScholar/OpenScholar-DataStore-V3](https://huggingface.co/datasets/OpenScholar/OpenScholar-DataStore-V3)
+See detailed training instructions in the [`training/`](training) directory.
 
-See instructions under [retriever](retriever) to run the peS2o index locally. Note that due to the massive-scale of index (200+M embeddings based on 45 million papers), the peS2o retriever requires a lot of CPU memory. In our main experiments, we retrieved initial passages offline. 
+## Running Retriever
 
-**We are planning to release our efficient sparse-dense retriever API endpoint used for the OpenScholar Demo publicly via Semantic Scholar API to accelerate research for LLMs for scientific literature synthesis. Stay tune!!d!**
+Both peS2o v2 and v3 datastores (chunked text + index) are available:
+- [OpenScholar-DataStore-V2](https://huggingface.co/datasets/OpenScholar/OpenScholar-DataStore-V2)
+- [OpenScholar-DataStore-V3](https://huggingface.co/datasets/OpenScholar/OpenScholar-DataStore-V3)
 
+See instructions in the [`retriever/`](retriever) directory for local deployment. Note that the peS2o index requires substantial CPU memory (200M+ embeddings from 45M papers).
 
-## Contact and Citation
-If you have any questions, please contact `akari@cs.washington`. Note that I am currently applying for academic jobs so I may be slow to respond. 
-If you have any questions related to demo, please file your request from [google form](https://docs.google.com/forms/d/e/1FAIpQLSfqPUKxxXlV16Bs8ZGcasXMP35WKQU6eeQhYViPQ9_Cmeq5Kw/viewform).
+## Citation
 
-```
+If you use OpenScholar in your research, please cite:
+
+```bibtex
 @article{openscholar,
   title={{OpenScholar}: Synthesizing Scientific Literature with Retrieval-Augmented Language Models},
   author={Asai, Akari and He*, Jacqueline and Shao*, Rulin and Shi, Weijia and Singh, Amanpreet and Chang, Joseph Chee  and Lo,  Kyle and Soldaini, Luca and Feldman, Tian, Sergey and Mike, D'arcy and Wadden, David and Latzke, Matt and Minyang and Ji, Pan and Liu, Shengyan and Tong, Hao and Wu, Bohao and Xiong, Yanyu and Zettlemoyer, Luke and Weld, Dan and Neubig, Graham and Downey, Doug and Yih, Wen-tau and Koh, Pang Wei and Hajishirzi, Hannaneh},
