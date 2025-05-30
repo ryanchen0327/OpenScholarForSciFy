@@ -729,15 +729,101 @@ class OpenScholar(object):
         print("llama3 chat format? {0}".format(llama3_chat))
         print("use feedback: {}".format(use_feedback))
         total_cost = 0
+        
+        # INITIAL RETRIEVAL: If no contexts are available, retrieve documents first
+        if self.use_contexts and len(item["ctxs"]) == 0:
+            print("🔍 No initial contexts found - performing initial retrieval...")
+            initial_papers = []
+            query = item["input"]
+            
+            # 1. Semantic Scholar API retrieval
+            if self.ss_retriever is True:
+                print("🔍 Retrieving from Semantic Scholar API...")
+                try:
+                    new_keywords = self.retrieve_keywords(query)
+                    paper_list = {}
+                    if len(new_keywords) > 0:
+                        for keyword in new_keywords:    
+                            top_papers = search_paper_via_query(keyword)
+                            if top_papers is not None:
+                                for paper in top_papers:
+                                    if paper["paperId"] not in paper_list:
+                                        paper["text"] = paper["abstract"]
+                                        paper["citation_counts"] = paper["citationCount"]
+                                        paper["type"] = "semantic_scholar_initial"
+                                        paper_list[paper["paperId"]] = paper
+                        initial_papers += list(paper_list.values())
+                        print(f"📄 Semantic Scholar: Retrieved {len(list(paper_list.values()))} papers")
+                except Exception as e:
+                    print(f"❌ Semantic Scholar retrieval failed: {e}")
+            
+            # 2. peS2o dense retrieval
+            if self.use_pes2o_feedback is True:
+                print("🔍 Retrieving from peS2o dense index...")
+                try:
+                    pes2o_papers = retrieve_pes2o_passages(query, 20, "pes2o")
+                    for paper in pes2o_papers:
+                        paper["type"] = "pes2o_initial"
+                    initial_papers += pes2o_papers
+                    print(f"📄 peS2o: Retrieved {len(pes2o_papers)} papers")
+                except Exception as e:
+                    print(f"❌ peS2o retrieval failed: {e}")
+            
+            # 3. Google search
+            if self.use_google_feedback is True:
+                print("🔍 Retrieving from Google search...")
+                try:
+                    google_papers = search_google_non_restricted(query)
+                    for paper in google_papers:
+                        paper["type"] = "google_initial"
+                    initial_papers += google_papers
+                    print(f"📄 Google: Retrieved {len(google_papers)} papers")
+                except Exception as e:
+                    print(f"❌ Google search failed: {e}")
+            
+            # 4. You.com search
+            if self.use_youcom_feedback is True:
+                print("🔍 Retrieving from You.com search...")
+                try:
+                    youcom_papers = search_youcom_non_restricted(query)
+                    for paper in youcom_papers:
+                        paper["type"] = "youcom_initial"
+                    initial_papers += youcom_papers
+                    print(f"📄 You.com: Retrieved {len(youcom_papers)} papers")
+                except Exception as e:
+                    print(f"❌ You.com search failed: {e}")
+            
+            # If no retrieval sources are enabled, warn the user
+            if not any([self.ss_retriever, self.use_pes2o_feedback, self.use_google_feedback, self.use_youcom_feedback]):
+                print("⚠️  Warning: No retrieval sources enabled! Enable at least one of:")
+                print("   --ss_retriever (Semantic Scholar)")
+                print("   --use_pes2o_feedback (peS2o)")  
+                print("   --use_google_feedback (Google)")
+                print("   --use_youcom_feedback (You.com)")
+                print("   Or use src/use_search_apis.py to pre-populate contexts")
+            
+            print(f"📊 Total initial papers from all sources: {len(initial_papers)}")
+            
+            # Deduplicate and populate contexts
+            if len(initial_papers) > 0:
+                print("before deduplication: {}".format(len(initial_papers)))
+                initial_papers_dicts = {paper["text"][:100] + paper["title"]: paper for paper in initial_papers if paper is not None and type(paper["text"]) is str}
+                initial_papers = list(initial_papers_dicts.values())
+                print("after deduplication: {}".format(len(initial_papers)))
+                item["ctxs"] = initial_papers
+                item["original_ctxs"] = initial_papers
+                print(f"✅ Populated {len(initial_papers)} initial contexts")
+            else:
+                print("⚠️  No documents retrieved - proceeding with empty contexts")
             
         if ranking_ce is True:
             # Check if there are contexts to rerank
             if len(item["ctxs"]) == 0:
                 print("⚠️  Skipping reranking: No contexts available to rerank")
-                print("   This is normal when starting with empty contexts - documents will be retrieved during feedback phase")
                 item["ranked_results"] = {}
                 item["id_mapping"] = {}
             else:
+                print(f"🔄 Reranking {len(item['ctxs'])} contexts...")
                 item["ctxs"], ranked_results, id_mapping = self.reranking_passages_cross_encoder(item, batch_size=1, llama3_chat=llama3_chat, task_name=task_name, use_abstract=False)
                 item["ranked_results"] = ranked_results
                 item["id_mapping"] = id_mapping
