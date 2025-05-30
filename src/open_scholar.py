@@ -247,18 +247,28 @@ class OpenScholar(object):
     def retrieve_keywords(self, question):
         prompt = [instructions.keyword_extraction_prompt.format_map({"question": question})]
         
-        if  self.client is not None:
-            result = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[
-                        {"role": "user",
-                            "content": prompt[0]},
-                    ],
-                    temperature=0.9,
-                    max_tokens=1000,
-                )
-            raw_output = result.choices[0].message.content
-            outputs = raw_output
+        if self.client is not None:
+            try:
+                result = self.client.chat.completions.create(
+                        model=self.model_name,
+                        messages=[
+                            {"role": "user",
+                                "content": prompt[0]},
+                        ],
+                        temperature=0.9,
+                        max_tokens=1000,
+                    )
+                raw_output = result.choices[0].message.content
+                outputs = raw_output
+            except Exception as e:
+                # Detect if this is an OpenAI API error
+                if "openai" in str(type(e)).lower() or "401" in str(e) or "api key" in str(e).lower():
+                    print(f"❌ OpenAI API Error (during keyword generation): {e}")
+                    print("   → This prevents Semantic Scholar retrieval")
+                    print("   → Fix: Check your OpenAI API key in openai_key.txt")
+                else:
+                    print(f"❌ Keyword generation error: {e}")
+                raise e  # Re-raise to be caught by calling function
         
         else:
             sampling_params = vllm.SamplingParams(
@@ -743,6 +753,7 @@ class OpenScholar(object):
                     new_keywords = self.retrieve_keywords(query)
                     paper_list = {}
                     if len(new_keywords) > 0:
+                        print(f"📝 Generated search keywords: {', '.join(new_keywords)}")
                         for keyword in new_keywords:    
                             top_papers = search_paper_via_query(keyword)
                             if top_papers is not None:
@@ -752,10 +763,19 @@ class OpenScholar(object):
                                         paper["citation_counts"] = paper["citationCount"]
                                         paper["type"] = "semantic_scholar_initial"
                                         paper_list[paper["paperId"]] = paper
+                    
+                    if len(paper_list) > 0:
                         initial_papers += list(paper_list.values())
                         print(f"📄 Semantic Scholar: Retrieved {len(list(paper_list.values()))} papers")
+                    else:
+                        print("📄 Semantic Scholar: No papers retrieved (API unavailable or no results)")
                 except Exception as e:
-                    print(f"❌ Semantic Scholar retrieval failed: {e}")
+                    # Check if this is an OpenAI error that occurred during keyword generation
+                    if "openai" in str(type(e)).lower() or "401" in str(e) or "api key" in str(e).lower():
+                        print("📄 Semantic Scholar: Skipped due to OpenAI API error during keyword generation")
+                    else:
+                        print(f"❌ Semantic Scholar API Error: {e}")
+                        print("   → This is a genuine Semantic Scholar API issue")
             
             # 2. peS2o dense retrieval
             if self.use_pes2o_feedback is True:
@@ -875,23 +895,31 @@ class OpenScholar(object):
                     # 1. Semantic Scholar API retrieval (existing)
                     if self.ss_retriever is True:
                         print("🔍 Retrieving from Semantic Scholar API...")
-                        new_keywords = self.retrieve_keywords(feedback_query)
-                        paper_list = {}
-                        if len(new_keywords) > 0:
-                            for keyword in new_keywords:    
-                                top_papers = search_paper_via_query(keyword)
-                                print(top_papers)
-                                if top_papers is None:
-                                    print(keyword)
-                                else:
-                                    for paper in top_papers:
-                                        if paper["paperId"] not in paper_list:
-                                            paper["text"] = paper["abstract"]
-                                            paper["citation_counts"] = paper["citationCount"]
-                                            paper["type"] = "semantic_scholar_feedback"
-                                            paper_list[paper["paperId"]] = paper
-                            new_papers += list(paper_list.values())
-                            print(f"📄 Semantic Scholar: Retrieved {len(list(paper_list.values()))} papers")
+                        try:
+                            new_keywords = self.retrieve_keywords(feedback_query)
+                            paper_list = {}
+                            if len(new_keywords) > 0:
+                                for keyword in new_keywords:    
+                                    top_papers = search_paper_via_query(keyword)
+                                    print(top_papers)
+                                    if top_papers is None:
+                                        print(keyword)
+                                    else:
+                                        for paper in top_papers:
+                                            if paper["paperId"] not in paper_list:
+                                                paper["text"] = paper["abstract"]
+                                                paper["citation_counts"] = paper["citationCount"]
+                                                paper["type"] = "semantic_scholar_feedback"
+                                                paper_list[paper["paperId"]] = paper
+                                new_papers += list(paper_list.values())
+                                print(f"📄 Semantic Scholar: Retrieved {len(list(paper_list.values()))} papers")
+                        except Exception as e:
+                            # Check if this is an OpenAI error during keyword generation
+                            if "openai" in str(type(e)).lower() or "401" in str(e) or "api key" in str(e).lower():
+                                print("📄 Semantic Scholar feedback: Skipped due to OpenAI API error during keyword generation")
+                            else:
+                                print(f"❌ Semantic Scholar feedback API Error: {e}")
+                                print("   → This is a genuine Semantic Scholar API issue")
                     
                     # 2. peS2o dense retrieval (new)
                     if self.use_pes2o_feedback is True:
