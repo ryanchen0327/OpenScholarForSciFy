@@ -8,6 +8,7 @@ import time
 import numpy as np
 from src.utils import load_jsonlines
 from bs4 import BeautifulSoup
+from googlesearch import search
 import requests
 import json
 import re
@@ -17,7 +18,12 @@ import pandas as pd
 from xml.etree import ElementTree as ET
 import os
 
-S2_API_KEY=os.environ["S2_API_KEY"]
+# Get API key if available, but don't require it
+try:
+    S2_API_KEY = os.environ.get("S2_API_KEY", None)
+except:
+    S2_API_KEY = None
+
 # YOUR_API_KEY = os.environ["YOUR_API_KEY"]
 PES2O_INDEX_URL="YOUR_PES2O_INDEX_URL"
 
@@ -39,8 +45,9 @@ def get_paper_data(paper_id):
     # Define which details about the paper you would like to receive in the response
     paper_data_query_params = {'fields': 'title,year,abstract,url,authors.name,citationCount,year,openAccessPdf'}
     # Send the API request and store the response in a variable
-    api_key = S2_API_KEY
-    headers = {'x-api-key': api_key}
+    headers = {}
+    if S2_API_KEY:
+        headers = {'x-api-key': S2_API_KEY}
     try:
         response = requests.get(url, params=paper_data_query_params, headers=headers)
         # time.sleep(0.1)
@@ -63,8 +70,9 @@ def get_paper_data(paper_id):
     # Define which details about the paper you would like to receive in the response
     paper_data_query_params = {'fields': 'title,year,abstract,url,authors.name,citationCount,year,openAccessPdf'}
     # Send the API request and store the response in a variable
-    api_key = S2_API_KEY
-    headers = {'x-api-key': api_key}
+    headers = {}
+    if S2_API_KEY:
+        headers = {'x-api-key': S2_API_KEY}
     try:
         response = requests.get(url, params=paper_data_query_params, headers=headers)
         # time.sleep(0.1)
@@ -97,9 +105,10 @@ def search_paper_via_query(query, max_paper_num=10):
     if "Search queries: " in query:
         query = query.split("Search queries: ")[1]
     query_params = {'query': query, 'limit': max_paper_num, "minCitationCount": 10, "sort": "citationCount:desc", 'fields': 'title,year,abstract,authors.name,citationCount,year,url,externalIds'}
-    api_key = S2_API_KEY
-    # Define headers with API key
-    headers = {'x-api-key': api_key}
+    # Define headers with API key only if available
+    headers = {}
+    if S2_API_KEY:
+        headers = {'x-api-key': S2_API_KEY}
     # Send the API request
     response = requests.get('https://api.semanticscholar.org/graph/v1/paper/search', params=query_params, headers=headers)
     time.sleep(0.5)
@@ -120,8 +129,9 @@ def search_paper_via_query(query, max_paper_num=10):
 
 def search_paper_via_title(title):
     query_params = {'query': title, 'fields': 'title,year,abstract,authors.name,citationCount,year,url,externalIds,corpusId'}
-    api_key = S2_API_KEY
-    headers = {'x-api-key': api_key}
+    headers = {}
+    if S2_API_KEY:
+        headers = {'x-api-key': S2_API_KEY}
     # Send the API request
     try:
         response = requests.get('https://api.semanticscholar.org/graph/v1/paper/search/match', params=query_params, headers=headers)
@@ -172,30 +182,67 @@ def search_semantic_scholar(question, client, model_name):
     return final_paper_list, new_keywords
 
 def batch_paper_data(arxiv_ids):
-    api_key = S2_API_KEY
-    headers = {'x-api-key': api_key}
-    r = requests.post(
-        'https://api.semanticscholar.org/graph/v1/paper/batch',
-        params={'fields': 'referenceCount,citationCount,title,url,publicationDate,abstract'},
-        json={"ids": ['ARXIV:{0}'.format(id) for id in arxiv_ids]}, headers=headers)
-    time.sleep(1)
-    response_data = r.json()
-    return {id: data for id, data in zip(arxiv_ids, response_data)}
+    # Only send API key header if we have one
+    headers = {}
+    if S2_API_KEY:
+        headers = {'x-api-key': S2_API_KEY}
+    
+    try:
+        r = requests.post(
+            'https://api.semanticscholar.org/graph/v1/paper/batch',
+            params={'fields': 'referenceCount,citationCount,title,url,publicationDate,abstract'},
+            json={"ids": ['ARXIV:{0}'.format(id) for id in arxiv_ids]}, 
+            headers=headers)
+        time.sleep(1)
+        response_data = r.json()
+        
+        # Check if response is an error (dict with 'error' key) or invalid format
+        if isinstance(response_data, dict) and 'error' in response_data:
+            print(f"❌ Semantic Scholar API error for ArXiv papers: {response_data['error']}")
+            return {}
+        elif not isinstance(response_data, list):
+            print(f"❌ Unexpected Semantic Scholar API response format: {response_data}")
+            return {}
+        
+        # Only create mapping if we have valid data
+        return {id: data for id, data in zip(arxiv_ids, response_data) if data is not None}
+    except Exception as e:
+        print(f"❌ Failed to fetch ArXiv paper metadata: {e}")
+        return {}
 
 def batch_paper_data_pubmed(pubmed_ids):
-    api_key = S2_API_KEY
-    headers = {'x-api-key': api_key}
-    r = requests.post(
-        'https://api.semanticscholar.org/graph/v1/paper/batch',
-        params={'fields': 'referenceCount,citationCount,title,url,publicationDate,abstract'},
-        json={"ids": ['PMID:{0}'.format(id) for id in pubmed_ids]}, headers=headers)
-    time.sleep(0.1)
-    response_data = r.json()
-    return {id: data for id, data in zip(pubmed_ids, response_data)}
+    # Only send API key header if we have one
+    headers = {}
+    if S2_API_KEY:
+        headers = {'x-api-key': S2_API_KEY}
+    
+    try:
+        r = requests.post(
+            'https://api.semanticscholar.org/graph/v1/paper/batch',
+            params={'fields': 'referenceCount,citationCount,title,url,publicationDate,abstract'},
+            json={"ids": ['PMID:{0}'.format(id) for id in pubmed_ids]}, 
+            headers=headers)
+        time.sleep(0.1)
+        response_data = r.json()
+        
+        # Check if response is an error (dict with 'error' key) or invalid format
+        if isinstance(response_data, dict) and 'error' in response_data:
+            print(f"❌ Semantic Scholar API error for PubMed papers: {response_data['error']}")
+            return {}
+        elif not isinstance(response_data, list):
+            print(f"❌ Unexpected Semantic Scholar API response format: {response_data}")
+            return {}
+        
+        # Only create mapping if we have valid data
+        return {id: data for id, data in zip(pubmed_ids, response_data) if data is not None}
+    except Exception as e:
+        print(f"❌ Failed to fetch PubMed paper metadata: {e}")
+        return {}
 
 def batch_paper_data_SS_ID(paper_ids):
-    api_key = S2_API_KEY
-    headers = {'x-api-key': api_key}
+    headers = {}
+    if S2_API_KEY:
+        headers = {'x-api-key': S2_API_KEY}
     r = requests.post(
         'https://api.semanticscholar.org/graph/v1/paper/batch',
         params={'fields': 'referenceCount,citationCount,title,url,publicationDate,abstract,year,authors.name'},
@@ -281,8 +328,37 @@ def search_google_non_restricted(query):
     arxiv_ids = []
     pubmed_ids = []
     for result in search_results:
-        # try:
         print(result.url)
+        
+        # Skip Google Scholar redirect URLs that aren't actual paper URLs
+        if "scholar.google.com" in result.url:
+            continue
+            
+        # Skip homepage and navigation URLs - only process actual paper URLs
+        skip_patterns = [
+            "https://pubmed.ncbi.nlm.nih.gov/$",           # Main page
+            "https://pubmed.ncbi.nlm.nih.gov/advanced",    # Advanced search
+            "https://pubmed.ncbi.nlm.nih.gov/help",        # Help pages
+            "https://pubmed.ncbi.nlm.nih.gov/about",       # About pages  
+            "https://pubmed.ncbi.nlm.nih.gov/trending",    # Trending page
+            "https://pubmed.ncbi.nlm.nih.gov/disclaimer",  # Disclaimer
+            "https://arxiv.org/$",                          # ArXiv main page
+            "https://arxiv.org/list/",                      # ArXiv lists
+            "https://arxiv.org/help/",                      # ArXiv help
+            "apple.com",                                    # Random non-paper sites
+            "news.ycombinator.com"                          # Random non-paper sites
+        ]
+        
+        should_skip = False
+        for pattern in skip_patterns:
+            if pattern in result.url or result.url.endswith(pattern.replace("$", "")):
+                should_skip = True
+                break
+        
+        if should_skip:
+            print(f"   ⏭️  Skipping non-paper URL: {result.url}")
+            continue
+            
         arxiv_id = None
         if "https://arxiv.org/abs/" in result.url:
             arxiv_id = result.url.split("https://arxiv.org/abs/")[1]
@@ -294,34 +370,125 @@ def search_google_non_restricted(query):
                 arxiv_id = arxiv_id.split("v")[0]
         if arxiv_id is not None and len(arxiv_id) > 0:
             arxiv_ids.append(arxiv_id)
+            print(f"   ✅ Extracted ArXiv ID: {arxiv_id}")
+            
+        # Fix PubMed URL parsing
         if "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC" in result.url:
-            pubmed_id = result.url.split("https://www.ncbi.nlm.nih.gov/pmc/articles/PMC")[1][:-1]
-            pubmed_ids.append(pubmed_id)
+            try:
+                pubmed_id = result.url.split("https://www.ncbi.nlm.nih.gov/pmc/articles/PMC")[1]
+                # Remove trailing slash and any query parameters
+                pubmed_id = pubmed_id.split('/')[0].split('?')[0]
+                if pubmed_id.isdigit():  # Only add if it's a valid numeric ID
+                    pubmed_ids.append(pubmed_id)
+                    print(f"   ✅ Extracted PubMed PMC ID: {pubmed_id}")
+            except:
+                continue
+                
         if "https://pubmed.ncbi.nlm.nih.gov/" in result.url:
-            pubmed_id = result.url.split("https://pubmed.ncbi.nlm.nih.gov/")[1][:-1]
-            pubmed_ids.append(pubmed_id)
-        # except:
-        #     continue
+            try:
+                # Only process URLs that have a numeric ID after the domain
+                url_parts = result.url.split("https://pubmed.ncbi.nlm.nih.gov/")[1]
+                pubmed_id = url_parts.split('/')[0].split('?')[0]
+                if pubmed_id.isdigit() and len(pubmed_id) > 0:  # Must be numeric and not empty
+                    pubmed_ids.append(pubmed_id)
+                    print(f"   ✅ Extracted PubMed ID: {pubmed_id}")
+                else:
+                    print(f"   ⏭️  Skipping non-numeric PubMed URL: {result.url}")
+            except:
+                continue
+        
     arxiv_ids = list(set(arxiv_ids))
     pubmed_ids = list(set(pubmed_ids))
+    
+    print(f"📊 Total unique ArXiv IDs found: {len(arxiv_ids)}")
+    print(f"📊 Total unique PubMed IDs found: {len(pubmed_ids)}")
 
     passages = retrieve_passages(arxiv_ids)
     paper_meta_data_results = batch_paper_data(arxiv_ids)
     ctxs = []
-    for arxiv_id in arxiv_ids:
-        paper_parsed = passages[arxiv_id]
-        if arxiv_id in paper_meta_data_results and type(paper_meta_data_results[arxiv_id]) is dict:
-            paper_meta_data =  paper_meta_data_results[arxiv_id]
-            for p in paper_parsed:
-                ctxs.append({"title": paper_meta_data["title"], "text": p, "type": "google_search_arxiv", "url": paper_meta_data["url"], "citation_counts": paper_meta_data["citationCount"], "abstract": paper_meta_data["abstract"]})
     
-    pubmed_paper_data = batch_paper_data_pubmed(pubmed_ids)
-    for pubmed_id in pubmed_ids:
-        title, abstract = get_pubmed_abstract_title(pubmed_id)
-        if title is None or abstract is None:
+    # Process ArXiv papers
+    for arxiv_id in arxiv_ids:
+        if arxiv_id not in passages:
             continue
-        paper_data = pubmed_paper_data[pubmed_id]
-        ctxs.append({"title": title, "text": abstract, "type": "google_search_pubmed", "url": paper_data["url"], "citation_counts": paper_data["citationCount"], "abstract": paper_data["abstract"]})
+        paper_parsed = passages[arxiv_id]
+        
+        # Check if we have valid passages
+        if not paper_parsed or len(paper_parsed) == 0:
+            print(f"⚠️  Skipping ArXiv {arxiv_id}: No passages retrieved")
+            continue
+            
+        # Use metadata if available, otherwise create basic context
+        if arxiv_id in paper_meta_data_results and isinstance(paper_meta_data_results[arxiv_id], dict):
+            paper_meta_data = paper_meta_data_results[arxiv_id]
+            for p in paper_parsed:
+                if len(p.strip()) > 0:  # Only add non-empty passages
+                    ctxs.append({
+                        "title": paper_meta_data.get("title", f"ArXiv Paper {arxiv_id}"),
+                        "text": p,
+                        "type": "google_search_arxiv",
+                        "url": paper_meta_data.get("url", f"https://arxiv.org/abs/{arxiv_id}"),
+                        "citation_counts": paper_meta_data.get("citationCount", 0),
+                        "abstract": paper_meta_data.get("abstract", "")
+                    })
+        else:
+            # Fallback: create contexts without metadata
+            print(f"⚠️  Using fallback for ArXiv {arxiv_id}: No metadata available")
+            for p in paper_parsed:
+                if len(p.strip()) > 0:
+                    ctxs.append({
+                        "title": f"ArXiv Paper {arxiv_id}",
+                        "text": p,
+                        "type": "google_search_arxiv",
+                        "url": f"https://arxiv.org/abs/{arxiv_id}",
+                        "citation_counts": 0,
+                        "abstract": ""
+                    })
+    
+    # Process PubMed papers
+    if len(pubmed_ids) > 0:
+        pubmed_paper_data = batch_paper_data_pubmed(pubmed_ids)
+        for pubmed_id in pubmed_ids:
+            try:
+                title, abstract = get_pubmed_abstract_title(pubmed_id)
+                
+                # Create context even if metadata API fails
+                if title is not None and abstract is not None:
+                    # Use Semantic Scholar metadata if available
+                    if pubmed_id in pubmed_paper_data and isinstance(pubmed_paper_data[pubmed_id], dict):
+                        paper_data = pubmed_paper_data[pubmed_id]
+                        ctxs.append({
+                            "title": title,
+                            "text": abstract,
+                            "type": "google_search_pubmed",
+                            "url": paper_data.get("url", f"https://pubmed.ncbi.nlm.nih.gov/{pubmed_id}"),
+                            "citation_counts": paper_data.get("citationCount", 0),
+                            "abstract": paper_data.get("abstract", abstract)
+                        })
+                    else:
+                        # Fallback: create context without Semantic Scholar metadata
+                        print(f"⚠️  Using fallback for PubMed {pubmed_id}: No S2 metadata available")
+                        ctxs.append({
+                            "title": title,
+                            "text": abstract,
+                            "type": "google_search_pubmed",
+                            "url": f"https://pubmed.ncbi.nlm.nih.gov/{pubmed_id}",
+                            "citation_counts": 0,
+                            "abstract": abstract
+                        })
+                else:
+                    print(f"⚠️  Skipping PubMed {pubmed_id}: Could not retrieve title/abstract from NCBI")
+            except Exception as e:
+                print(f"❌ Error processing PubMed {pubmed_id}: {e}")
+                continue
+    
+    print(f"📊 Google search final results: {len(ctxs)} contexts created")
+    
+    # Limit to first 3 contexts as requested
+    if len(ctxs) > 3:
+        ctxs = ctxs[:3]
+        print(f"📊 Limited to first 3 contexts")
+    
     return ctxs
 
 
@@ -353,10 +520,16 @@ def search_youcom_non_restricted(query):
             arxiv_ids.append(arxiv_id)
         if "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC" in result["url"]:
             pubmed_id = result["url"].split("https://www.ncbi.nlm.nih.gov/pmc/articles/PMC")[1][:-1]
-            pubmed_ids.append(pubmed_id)
+            pubmed_id = pubmed_id.split('/')[0].split('?')[0]
+            if pubmed_id.isdigit():  # Only add valid numeric IDs
+                pubmed_ids.append(pubmed_id)
         if "https://pubmed.ncbi.nlm.nih.gov/" in result["url"]:
             pubmed_id = result["url"].split("https://pubmed.ncbi.nlm.nih.gov/")[1][:-1]
-            pubmed_ids.append(pubmed_id)
+            pubmed_id = pubmed_id.split('/')[0].split('?')[0]
+            if pubmed_id.isdigit():  # Only add valid numeric IDs
+                pubmed_ids.append(pubmed_id)
+        if "scholar.google.com" in result["url"]:
+            continue
     arxiv_ids = list(set(arxiv_ids))
     pubmed_ids = list(set(pubmed_ids))
     
@@ -378,9 +551,10 @@ def search_youcom_non_restricted(query):
         if pubmed_id not in pubmed_paper_data:
             continue
         paper_data = pubmed_paper_data[pubmed_id]
-        if type(paper_data) is str:
+        # Check if paper_data is valid (should be a dict, not a string or None)
+        if not isinstance(paper_data, dict):
             continue
-        ctxs.append({"title": title, "text": abstract, "type": "you.com_pubmed", "url": paper_data["url"] if paper_data is not None else "", "citation_counts": paper_data["citationCount"] if paper_data is not None else 0,  "abstract": paper_data["abstract"] if paper_data is not None else ""})
+        ctxs.append({"title": title, "text": abstract, "type": "you.com_pubmed", "url": paper_data.get("url", ""), "citation_counts": paper_data.get("citationCount", 0), "abstract": paper_data.get("abstract", "")})
     return ctxs
 
 def retrieve_pes2o_passages(query, n_docs, domains):

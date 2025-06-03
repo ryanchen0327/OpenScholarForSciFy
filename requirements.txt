@@ -11,3 +11,5 @@ requests
 pandas
 jsonlines
 bs4
+tiktoken
+googlesearch-python

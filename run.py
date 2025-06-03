@@ -191,7 +191,7 @@ def main():
         else:
             base_url = None
         with open(args.api_key_fp) as f:
-            api_key = f.read()[:-1]
+            api_key = f.read().strip()
                 
         client = OpenAI(
             base_url = base_url,
