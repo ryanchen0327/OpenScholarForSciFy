@@ -204,3 +204,6 @@ wandb/
 # Test output files (keep test input files but ignore outputs)
 test_output*.json
 test_output*.jsonl
+
+
+openai_api_key
