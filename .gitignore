@@ -206,4 +206,4 @@ test_output*.json
 test_output*.jsonl
 
 
-openai_api_key
+openai_api_key.txt
